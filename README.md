@@ -7,9 +7,11 @@ An end-to-end machine learning system for time-series demand prediction, backed 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Dashboard Snapshot](#dashboard-snapshot)
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
 - [Prerequisites](#prerequisites)
+- [Adding Your CSV Data](#adding-your-csv-data)
 - [Installation](#installation)
 - [Running the Application](#running-the-application)
 - [File Structure](#file-structure)
@@ -25,6 +27,16 @@ EdgeCast is a robust time-series analysis and demand forecasting system. It inge
 The system represents a complete pipeline migration from static CSV data sources to a fully integrated MySQL database infrastructure, wrapped in a web-based frontend for real-time interaction.
 
 > This repository corresponds to the `aansh-1080p/db_full_and_final` directory.
+
+---
+
+## Dashboard Snapshot
+
+The interactive forecast dashboard overlays actual vs. predicted demand across the full time-series range. Hovering any data point surfaces the index, actual value, and predicted value inline.
+
+![Actual vs Predicted Demand — EdgeCast Dashboard](dashboard_snapshot.png)
+
+> **Figure:** Actual demand (white) vs. predicted demand (orange dashed) across 80 time-series entries. 
 
 ---
 
@@ -96,11 +108,73 @@ Before deploying EdgeCast, ensure the following are installed:
 
 ---
 
+## Adding Your CSV Data
+
+EdgeCast expects a historical demand CSV file placed at:
+
+```
+2nd_Eval(updated)/demand_forecasting (2).csv
+```
+
+### Required CSV Format
+
+Your file must contain at minimum the following columns:
+
+| Column        | Type    | Description                              |
+|---------------|---------|------------------------------------------|
+| `date`        | string  | Date of the demand record (`YYYY-MM-DD`) |
+| `demand`      | integer | Observed demand value for that period    |
+| `product_id`  | string  | Identifier for the SKU or product        |
+| `region`      | string  | Geographic region or store location      |
+
+### Example
+
+```csv
+date,demand,product_id,region
+2023-01-01,64,SKU-001,North
+2023-01-02,78,SKU-001,North
+2023-01-03,59,SKU-001,North
+2023-01-04,91,SKU-002,South
+```
+
+### Loading into MySQL
+
+Once your CSV is ready, import it into MySQL using the following:
+
+```sql
+LOAD DATA INFILE '/path/to/demand_forecasting.csv'
+INTO TABLE demand_data
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS;
+```
+
+Or use the Python loader inside `prep_final.ipynb`:
+
+```python
+import pandas as pd
+import mysql.connector
+
+df = pd.read_csv("demand_forecasting (2).csv")
+
+conn = mysql.connector.connect(
+    host="localhost",
+    user="your_user",
+    password="your_password",
+    database="your_database"
+)
+
+df.to_sql("demand_data", con=conn, if_exists="replace", index=False)
+```
+
+> If you are working purely from CSV without MySQL, the pipeline will fall back to reading `preprocessed_demand_data_final.csv` directly.
+
+---
+
 ## Installation
 
 ### 1. Create and Activate a Virtual Environment
-
-It is strongly recommended to isolate all Python dependencies inside a virtual environment.
 
 **Create the environment:**
 
@@ -183,22 +257,10 @@ pip install -r requirements.txt
 
 ### 6. Set Up the Vite + React Frontend
 
-Navigate to the frontend directory and scaffold the project:
-
 ```bash
 cd DB_PROJ
 npm create vite@latest . -- --template react
-```
-
-**Install all Node dependencies:**
-
-```bash
 npm install
-```
-
-**Install commonly used React packages:**
-
-```bash
 npm install axios react-router-dom recharts tailwindcss @tailwindcss/vite
 ```
 
@@ -225,7 +287,7 @@ npm run dev
 python 2nd_Eval(updated)/app.py
 ```
 
-**Start the Streamlit dashboard** (if applicable):
+**Start the Streamlit dashboard:**
 
 ```bash
 streamlit run 2nd_Eval(updated)/app.py
@@ -238,8 +300,6 @@ cd DB_PROJ
 npm run dev
 ```
 
-Then open the URL shown in your terminal (default: `http://localhost:5173`).
-
 ---
 
 ## File Structure
@@ -248,6 +308,7 @@ Then open the URL shown in your terminal (default: `http://localhost:5173`).
 aansh-1080p/db_full_and_final/
 ├── venv/                                   # Python virtual environment (do not commit)
 ├── requirements.txt                        # Frozen Python dependencies
+├── dashboard_snapshot.png                  # Dashboard preview image
 │
 ├── 2nd_Eval(updated)/
 │   ├── app.py                              # Backend server and API routing
