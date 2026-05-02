@@ -1,11 +1,12 @@
 // App.jsx - Main dashboard with routing
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from "recharts";
 import { Routes, Route, useNavigate } from "react-router-dom";
 import About from "./About";
+import Lenis from "@studio-freight/lenis";
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,34 @@ async function fetchDemandPrediction(rows) {
   return data.predictions;
 }
 
+// ─── LENIS SMOOTH SCROLL HOOK ────────────────────────────────────────────────
+
+function useLenis() {
+  useEffect(() => {
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      orientation: 'vertical',
+      gestureOrientation: 'vertical',
+      smoothWheel: true,
+      wheelMultiplier: 1,
+      touchMultiplier: 2,
+      infinite: false,
+    });
+
+    function raf(time) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+
+    requestAnimationFrame(raf);
+
+    return () => {
+      lenis.destroy();
+    };
+  }, []);
+}
+
 // ─── METRIC CARD (editorial, high-contrast)─────────────────────────────────
 
 function MetricCard({ label, value, accent }) {
@@ -164,9 +193,74 @@ const inputStyle = {
   outline: "none", fontFamily: "'DM Sans', sans-serif"
 };
 
+// ─── HOVER CARD COMPONENT ─────────────────────────────────────────────────
+
+function HoverCard({ children, content }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const timeoutRef = useRef(null);
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setIsOpen(true), 80);
+  };
+
+  const handleMouseLeave = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setIsOpen(false), 150);
+  };
+
+  return (
+    <div 
+      style={{ position: "relative", display: "inline-block" }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {children}
+      <div
+        style={{
+          opacity: isOpen ? 1 : 0,
+          pointerEvents: isOpen ? "auto" : "none",
+          transition: "opacity 0.2s ease, transform 0.2s ease",
+          transform: isOpen ? "translateX(-50%) translateY(0)" : "translateX(-50%) translateY(6px)",
+          position: "absolute",
+          bottom: "100%",
+          left: "50%",
+          marginBottom: "12px",
+          width: "180px",
+          background: "#0A0A0A",
+          border: "1px solid #E5484D",
+          padding: "14px 16px",
+          zIndex: 1000,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.4)"
+        }}
+      >
+        <div style={{ fontWeight: 700, fontSize: 11, color: "#E5484D", marginBottom: 6, fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          IMPROVE ACCURACY
+        </div>
+        <div style={{ fontSize: 12, color: "#E0E0E0", lineHeight: 1.4, fontFamily: "'DM Sans', sans-serif" }}>
+          {content}
+        </div>
+        <div style={{
+          position: "absolute",
+          bottom: "-6px",
+          left: "50%",
+          transform: "translateX(-50%) rotate(45deg)",
+          width: "12px",
+          height: "12px",
+          background: "#0A0A0A",
+          borderRight: "1px solid #E5484D",
+          borderBottom: "1px solid #E5484D"
+        }} />
+      </div>
+    </div>
+  );
+}
+
 // ─── DASHBOARD COMPONENT ─────────────────────────────────────────────────
 
 function Dashboard() {
+  useLenis();
+  
   const [tab, setTab] = useState("bulk");
   const [csvData, setCsvData] = useState(null);
   const [csvName, setCsvName] = useState("");
@@ -560,33 +654,54 @@ function Dashboard() {
                     </div>
                   </div>
                   <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end" }}>
-                  <button
-                     onClick={async () => {
-                    try {
-                         const res = await fetch("https://db-full-and-final-2.onrender.com/push-to-db", {
-                  method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: bulkResult.rows, table_name: tableName })
-      });
-      const data = await res.json();
-// ... rest of the code remains the same
-                          if (data.success) {
-                            alert(` PUSHED ${data.rows_pushed} ROWS TO '${data.table}'`);
-                          } else {
-                            alert(" PUSH FAILED: " + data.error);
+                    <HoverCard content="Help us improve predictions — pushing more data enables better fine-tuning and higher accuracy.">
+                      <button
+                        onClick={async () => {
+                          try {
+                            const res = await fetch("https://db-full-and-final-2.onrender.com/push-to-db", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ data: bulkResult.rows, table_name: tableName })
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                              alert(`✓ PUSHED ${data.rows_pushed} ROWS TO '${data.table}'`);
+                            } else {
+                              alert("✗ PUSH FAILED: " + data.error);
+                            }
+                          } catch (err) {
+                            alert("✗ CONNECTION ERROR: " + err.message);
                           }
-                        } catch (err) {
-                          alert(" CONNECTION ERROR: " + err.message);
-                        }
-                      }}
-                      style={{
-                        padding: "12px 24px", borderRadius: 0, border: "1px solid #E5484D",
-                        background: "transparent", color: "#F76808",
-                        fontWeight: 700, fontSize: 12, cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.08em"
-                      }}
-                    >
-                       PUSH TO MYSQL
-                    </button>
+                        }}
+                        style={{
+                          padding: "12px 12px",
+                          borderRadius: 0,
+                          border: "1px solid #E5484D",
+                          background: "transparent",
+                          color: "#F76808",
+                          fontWeight: 700,
+                          fontSize: 12,
+                          cursor: "pointer",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          transition: "all 0.7s ease-in-out"
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.background = "#E5484D";
+                          e.target.style.color = "#FFFFFF";
+                          e.target.style.borderColor = "#E5484D";
+                          e.target.style.transform = "translateY(-2px)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = "transparent";
+                          e.target.style.color = "#F76808";
+                          e.target.style.borderColor = "#E5484D";
+                          e.target.style.transform = "translateY(0)";
+                        }}
+                      >
+                        PUSH TO MYSQL
+                      </button>
+                    </HoverCard>
                   </div>
                 </>
               )}
@@ -679,12 +794,40 @@ function Dashboard() {
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { margin: 0; background: #030303; }
+        body { margin: 0; background: #030303; overflow-x: hidden; }
+        /* Hide scrollbars but keep functionality */
+        html {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        html::-webkit-scrollbar,
+        body::-webkit-scrollbar,
+        div::-webkit-scrollbar {
+          display: none;
+          width: 0;
+          height: 0;
+        }
+        * {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        *::-webkit-scrollbar {
+          display: none;
+        }
         input:focus, select:focus { outline: none; border-color: #E5484D; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #050505; }
-        ::-webkit-scrollbar-thumb { background: #E5484D; }
         button:hover { opacity: 0.85; }
+        html.lenis {
+          height: auto;
+        }
+        .lenis.lenis-smooth {
+          scroll-behavior: auto;
+        }
+        .lenis.lenis-smooth [data-lenis-prevent] {
+          overscroll-behavior: contain;
+        }
+        .lenis.lenis-stopped {
+          overflow: hidden;
+        }
       `}</style>
     </div>
   );
