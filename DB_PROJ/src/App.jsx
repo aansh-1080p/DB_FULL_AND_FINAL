@@ -426,6 +426,7 @@ function Dashboard() {
                 </div>
                 {csvData && (
                   <button
+                    title="Help us improve predictions — pushing more data enables better fine-tuning and higher accuracy."
                     onClick={runBulkForecast}
                     disabled={loading}
                     style={{
