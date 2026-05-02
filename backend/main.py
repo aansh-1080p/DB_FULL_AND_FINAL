@@ -3,10 +3,22 @@ from fastapi.middleware.cors import CORSMiddleware
 import pickle, pandas as pd, numpy as np
 from pydantic import BaseModel
 from sqlalchemy import create_engine
-
+from flask import Flask
+from flask_cors import CORS # Import CORS
+ 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app = Flask(__name__)
 
+# Enable CORS for all domains on all routes
+CORS(app) 
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    return {"message": "Success!"}
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
 with open("xgboost_demand_model_sql.pkl", "rb") as f:
     model = pickle.load(f)
 with open("model_features_sql.pkl", "rb") as f:
