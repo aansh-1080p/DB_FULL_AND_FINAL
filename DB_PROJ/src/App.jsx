@@ -84,7 +84,7 @@ function callForecasting(rowFeatures) {
 // ─── API CALL ────────────────────────────────────────────────────────────────
 
 async function fetchDemandPrediction(rows) {
-  const res = await fetch("http://localhost:8000/predict", {
+  const res = await fetch("https://db-full-and-final-2.onrender.com/predict", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ data: rows })
@@ -406,7 +406,6 @@ function Dashboard() {
               )}
             </div>
           )}
-
           <div style={{ marginTop: 40 }}>
             <p style={{ fontSize: 10, fontWeight: 700, color: "#E5484D", textTransform: "uppercase", letterSpacing: "0.12em", margin: "0 0 16px" }}>// NAVIGATION</p>
             <TabBtn active={tab === "bulk"} onClick={() => setTab("bulk")} icon="⎔" label="BULK FORECAST" />
@@ -560,15 +559,16 @@ function Dashboard() {
                     </div>
                   </div>
                   <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end" }}>
-                    <button
-                      onClick={async () => {
-                        try {
-                          const res = await fetch("http://localhost:8000/push-to-db", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ data: bulkResult.rows, table_name: tableName })
-                          });
-                          const data = await res.json();
+                  <button
+                     onClick={async () => {
+                    try {
+                         const res = await fetch("https://db-full-and-final-2.onrender.com/push-to-db", {
+                  method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: bulkResult.rows, table_name: tableName })
+      });
+      const data = await res.json();
+// ... rest of the code remains the same
                           if (data.success) {
                             alert(` PUSHED ${data.rows_pushed} ROWS TO '${data.table}'`);
                           } else {
