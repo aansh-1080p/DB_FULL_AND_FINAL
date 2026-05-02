@@ -1,29 +1,29 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import pickle, pandas as pd, numpy as np
+import pickle
+import pandas as pd
+import numpy as np
 from pydantic import BaseModel
 from sqlalchemy import create_engine
-from flask import Flask
-from flask_cors import CORS # Import CORS
- 
+
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-app = Flask(__name__)
 
-# Enable CORS for all domains on all routes
-CORS(app) 
+# Enable CORS for your Vercel frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    return {"message": "Success!"}
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+# Load your models
 with open("xgboost_demand_model_sql.pkl", "rb") as f:
     model = pickle.load(f)
 with open("model_features_sql.pkl", "rb") as f:
     features = pickle.load(f)
 
+# Database connection
 engine = create_engine("mysql+mysqlconnector://root:root123@localhost:3306/db_final")
 
 class Row(BaseModel):
@@ -35,6 +35,7 @@ def predict(body: Row):
     df = pd.DataFrame(body.data).reindex(columns=features, fill_value=0).astype(float)
     preds = model.predict(df).tolist()
     return {"predictions": [max(0, int(round(p))) for p in preds]}
+
 @app.post("/push-to-db")
 def push_to_db(body: Row):
     try:
